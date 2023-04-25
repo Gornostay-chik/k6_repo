@@ -1,25 +1,28 @@
 // tests/main.js
-//import http from "k6/http";
-import { sleep } from "k6"; // подключаем сон
-import create_pet from "./create_pet.js"; // подключаем создание питомца
-import get_pet from "./get_pet.js"; // подключет просмотр питомца
-import { group } from 'k6'; // подключем группировку тестов - !!! переменные не живут между группами
+import http from "k6/http";
+import { check} from 'k6'; // подключаем проверки - тест не прерывается в  случае неудачи !!
+import { Trend } from 'k6/metrics'; // подключаем возможность собственных метрик
+const TrendCheck = new Trend('/API get');
 
+export default function (apiEndpoint,pet_id) {
+ // console.log("Hello from K6");
+ 
+let res = http.get(`${apiEndpoint}${pet_id}`);
+ console.log("get_pet");
 
-const apiEndpoint = `https://petstore.swagger.io/v2/pet/`; // адрес обращения
-
-
-export default function () {
-// console.log("Hello from K6");
-// sleep(1);
-group('API create and get', () => {
-var pet_id = create_pet(apiEndpoint); // переменная живет внутри группы
-//});
-
- sleep(1);
-
-// group('API get', () => {
- get_pet(apiEndpoint,pet_id);
+ // блок проверок
+ check(res, {
+    "get status code should be 200": res => res.status === 200,
+});
+ check(res, {
+    "get response should have status available": res => res.json().status === "available",
 });
 
+check(res, {
+    "get response should have id from create": res => res.json().id === pet_id,
+});
+
+TrendCheck.add(res.timings.duration);
+
+ console.log(res.json());
 }
